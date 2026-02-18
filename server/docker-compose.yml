@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+    backend:
+        build: .
+        container_name: deepfake-detector-backend
+        ports:
+            - "8000:8000"
+        volumes:
+            - ./app:/app/app
+            - ./uploads:/app/uploads
+            - ./logs:/app/logs
+        env_file:
+            - .env
+        environment:
+            - PYTHONUNBUFFERED=1
+        restart: unless-stopped
+        networks:
+            - deepfake-network
+
+networks:
+    deepfake-network:
+        driver: bridge
