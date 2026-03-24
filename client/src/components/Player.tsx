@@ -119,6 +119,76 @@ export default function Player({
                 *By uploading, you agree to our <span>Terms of Service</span>{" "}
                 and <span>Privacy Policy</span>.
             </p>
+
+            {/* Filler content — visible only when no video is loaded */}
+            <div className="mt-2 space-y-4">
+                {/* How it works */}
+                <div className="bg-white/2">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-4">
+                        How It Works
+                    </h3>
+                    <ol className="space-y-3">
+                        <li className="flex items-start gap-3">
+                            <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">
+                                1
+                            </span>
+                            <div>
+                                <span className="text-sm font-medium text-gray-200">
+                                    Upload your video
+                                </span>
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                                    Supports MP4, AVI, MOV, MKV, WebM — up to
+                                    100 MB
+                                </p>
+                            </div>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">
+                                2
+                            </span>
+                            <div>
+                                <span className="text-sm font-medium text-gray-200">
+                                    Run analysis
+                                </span>
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                                    Frames are extracted and classified
+                                    per-frame by a SigLIP Vision Transformer and
+                                    ResNeXt-50 spatial extractor
+                                </p>
+                            </div>
+                        </li>
+                        <li className="flex items-start gap-3">
+                            <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">
+                                3
+                            </span>
+                            <div>
+                                <span className="text-sm font-medium text-gray-200">
+                                    Review results
+                                </span>
+                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                                    Artifact regions are overlaid on the video
+                                    canvas with per-frame confidence scores and
+                                    a fused verdict
+                                </p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="border border-white/5 rounded-xl bg-white/[0.02]">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
+                        Data & Privacy
+                    </h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                        Uploaded videos are stored temporarily on the server for
+                        analysis only. Results are held in-memory and cleared on
+                        server restart. No video content is shared, logged, or
+                        retained beyond the active session. This platform
+                        operates as a demonstration framework and is not
+                        intended for production use.
+                    </p>
+                </div>
+            </div>
         </div>
     );
 }

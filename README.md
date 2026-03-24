@@ -1,8 +1,10 @@
-# Deepfake Video Detector
+# TrustLens — Deepfake Video Detector
 
 **AI-Based Deepfake Detection Using Hybrid Spatial-Temporal Deep Learning Framework**
 
 A full-stack web application for detecting deepfake videos using advanced spatial and temporal analysis techniques.
+
+![alt text](./client/public/image.png)
 
 ## 🎯 Project Overview
 

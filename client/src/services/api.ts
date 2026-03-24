@@ -1,6 +1,18 @@
 const API_BASE_URL =
     import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+function fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeoutMs = 10000,
+): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+        clearTimeout(id),
+    );
+}
+
 export interface VideoUploadResponse {
     message: string;
     video_id: string;
@@ -67,10 +79,20 @@ class ApiService {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch(`${this.baseUrl}/upload`, {
-            method: "POST",
-            body: formData,
-        });
+        let response: Response;
+        try {
+            response = await fetchWithTimeout(
+                `${this.baseUrl}/upload`,
+                { method: "POST", body: formData },
+                60000, // 60 s — large files may take a while
+            );
+        } catch (err: unknown) {
+            const msg =
+                err instanceof Error && err.name === "AbortError"
+                    ? "Upload timed out. Is the backend running on port 8000?"
+                    : "Cannot reach backend. Make sure the server is running on port 8000.";
+            throw new Error(msg);
+        }
 
         if (!response.ok) {
             const error = await response.json();
@@ -92,9 +114,18 @@ class ApiService {
     }
 
     async triggerAnalysis(videoId: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/analyze/${videoId}`, {
-            method: "POST",
-        });
+        let response: Response;
+        try {
+            response = await fetchWithTimeout(
+                `${this.baseUrl}/analyze/${videoId}`,
+                { method: "POST" },
+                10000,
+            );
+        } catch {
+            throw new Error(
+                "Cannot reach backend. Make sure the server is running on port 8000.",
+            );
+        }
 
         if (!response.ok) {
             const error = await response.json();
@@ -103,8 +134,10 @@ class ApiService {
     }
 
     async checkHealth(): Promise<{ status: string }> {
-        const response = await fetch(
+        const response = await fetchWithTimeout(
             `${this.baseUrl.replace("/api", "")}/health`,
+            {},
+            5000,
         );
         return response.json();
     }

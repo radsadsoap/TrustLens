@@ -1,27 +1,36 @@
 import { useState, useEffect } from "react";
+import {
+    InfoIcon,
+    ShieldCheckIcon,
+    PlayIcon,
+    BookOpenIcon,
+    WarningCircleIcon,
+    RocketLaunchIcon,
+    LightbulbIcon,
+    DotsSixVerticalIcon,
+} from "@phosphor-icons/react";
 
 const sections = [
-    { id: "overview", title: "Overview", level: 1 },
-    { id: "architecture", title: "Architecture & Technologies", level: 1 },
-    { id: "project-flow", title: "Project Flow", level: 1 },
+    { id: "what-is-trustlens", title: "What is TrustLens?", icon: InfoIcon },
+    { id: "why-it-matters", title: "Why It Matters", icon: ShieldCheckIcon },
+    { id: "how-to-use", title: "How to Use", icon: PlayIcon },
     {
-        id: "how-it-works",
-        title: "How It Works",
-        level: 1,
-        subItems: [
-            { id: "upload-video", title: "Upload Video", level: 2 },
-            { id: "processing", title: "Processing", level: 2 },
-            { id: "review-results", title: "Review Results", level: 2 },
-        ],
+        id: "understanding-results",
+        title: "Understanding Results",
+        icon: BookOpenIcon,
     },
-    { id: "technical-details", title: "Technical Details", level: 1 },
-    { id: "best-practices", title: "Best Practices", level: 1 },
-    { id: "limitations", title: "Limitations", level: 1 },
-    { id: "privacy-security", title: "Privacy & Security", level: 1 },
+    {
+        id: "what-can-detect",
+        title: "What It Can Detect",
+        icon: ShieldCheckIcon,
+    },
+    { id: "limitations", title: "Limitations", icon: WarningCircleIcon },
+    { id: "running-locally", title: "Running Locally", icon: RocketLaunchIcon },
+    { id: "support", title: "Support & Contributing", icon: LightbulbIcon },
 ];
 
 export default function DocsNav() {
-    const [activeSection, setActiveSection] = useState("overview");
+    const [activeSection, setActiveSection] = useState("what-is-trustlens");
 
     useEffect(() => {
         const container = document.getElementById("docs-content");
@@ -29,11 +38,7 @@ export default function DocsNav() {
 
         const handleScroll = () => {
             const scrollPosition = container.scrollTop + 100;
-            const allIds = sections.flatMap((s) =>
-                s.subItems
-                    ? [s.id, ...s.subItems.map((sub) => sub.id)]
-                    : [s.id],
-            );
+            const allIds = sections.map((s) => s.id);
 
             for (const id of allIds) {
                 const element = document.getElementById(id);
@@ -53,7 +58,7 @@ export default function DocsNav() {
         };
 
         container.addEventListener("scroll", handleScroll);
-        handleScroll();
+        setTimeout(handleScroll, 100);
 
         return () => container.removeEventListener("scroll", handleScroll);
     }, []);
@@ -67,47 +72,63 @@ export default function DocsNav() {
         }
     };
 
+    const activeIndex = sections.findIndex((s) => s.id === activeSection);
+
     return (
-        <div className="w-1/4 border-l p-6 overflow-y-auto">
-            <h2 className="font-semibold mb-4 text-gray-400 uppercase text-sm tracking-wider">
-                On This Page
-            </h2>
-            <nav>
-                <ul className="space-y-1 border-l-2 border-gray-800">
-                    {sections.map((section) => (
-                        <li key={section.id}>
-                            <a
-                                onClick={() => scrollToSection(section.id)}
-                                className={`block py-1.5 pl-4 border-l-2 -ml-0.5 cursor-pointer transition-all duration-200 ${
-                                    activeSection === section.id
-                                        ? "border-red-500 text-gray-50 font-medium"
-                                        : "border-transparent text-gray-400 hover:text-gray-200 hover:border-red-500/50"
-                                }`}
-                            >
-                                {section.title}
-                            </a>
-                            {section.subItems && (
-                                <ul className="mt-1 space-y-1">
-                                    {section.subItems.map((subItem) => (
-                                        <li key={subItem.id}>
-                                            <a
-                                                onClick={() =>
-                                                    scrollToSection(subItem.id)
-                                                }
-                                                className={`block py-1 pl-8 text-sm border-l-2 -ml-0.5 cursor-pointer transition-all duration-200 ${
-                                                    activeSection === subItem.id
-                                                        ? "border-red-500 text-gray-50 font-medium"
-                                                        : "border-transparent text-gray-500 hover:text-gray-200 hover:border-red-500/50"
-                                                }`}
-                                            >
-                                                {subItem.title}
-                                            </a>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </li>
-                    ))}
+        <div className="w-1/4 border-l border-white overflow-y-auto bg-black flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-white">
+                <div className="flex items-center gap-2 ">
+                    <BookOpenIcon size={14} weight="bold" />
+                    <span className="text-xs font-semibold uppercase tracking-widest">
+                        On This Page
+                    </span>
+                </div>
+            </div>
+
+            {/* Nav Items */}
+            <nav className="flex-1 p-3">
+                <ul className="space-y-0.5">
+                    {sections.map((section) => {
+                        const Icon = section.icon;
+                        const isActive = activeSection === section.id;
+                        return (
+                            <li key={section.id}>
+                                <a
+                                    onClick={() => scrollToSection(section.id)}
+                                    className={`relative flex items-center justify-between gap-3 py-2.5 px-3 text-sm rounded-lg cursor-pointer transition-all duration-200 group ${
+                                        isActive
+                                            ? "bg-red-500/10 text-red-400"
+                                            : "text-gray-500 hover:text-gray-200 hover:bg-white/5"
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Icon
+                                            size={15}
+                                            weight={
+                                                isActive ? "duotone" : "regular"
+                                            }
+                                            className={`shrink-0 transition-colors duration-200 ${
+                                                isActive
+                                                    ? "text-red-400"
+                                                    : "text-gray-600 group-hover:text-gray-400"
+                                            }`}
+                                        />
+                                        <span
+                                            className={`leading-tight transition-all duration-200 ${
+                                                isActive ? "font-medium" : ""
+                                            }`}
+                                        >
+                                            {section.title}
+                                        </span>
+                                    </div>
+                                    {isActive && (
+                                        <DotsSixVerticalIcon size={20} />
+                                    )}
+                                </a>
+                            </li>
+                        );
+                    })}
                 </ul>
             </nav>
         </div>

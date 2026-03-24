@@ -1,15 +1,35 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from app.models import VideoUploadResponse, AnalysisResult, ErrorResponse
 from app.services.video_service import VideoService
-from app.services.huggingface_detector import HuggingFaceDeepfakeDetector
+from app.services.hybrid_detector import HybridSpatialTemporalDetector
 import uuid
 import os
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 video_service = VideoService()
-deepfake_detector = HuggingFaceDeepfakeDetector()
+_executor = ThreadPoolExecutor(max_workers=1)
+
+# Detector is initialised lazily inside the executor thread on first analysis,
+# so the server starts and can serve /health immediately without waiting for
+# large model weights to load into memory.
+_detector: HybridSpatialTemporalDetector | None = None
+
+
+def _ensure_detector_and_analyze(file_path: str, video_id: str) -> AnalysisResult:
+    """
+    Runs in the executor thread (never on the event loop).
+    Initialises the detector on first call, then runs inference.
+    """
+    global _detector
+    if _detector is None:
+        logger.info("Initialising Hybrid Spatial-Temporal Detector...")
+        _detector = HybridSpatialTemporalDetector()
+        logger.info("Detector ready.")
+    return _detector.analyze_video(file_path, video_id)
 
 # In-memory storage for analysis results (in production, use a database)
 analysis_cache: dict[str, AnalysisResult] = {}
@@ -80,9 +100,17 @@ async def trigger_analysis(video_id: str, background_tasks: BackgroundTasks):
     if result.status == "processing":
         raise HTTPException(status_code=409, detail="Analysis already in progress")
     
-    # Get video path
-    file_path = f"uploads/{video_id}.mp4"
-    if not os.path.exists(file_path):
+    # Find the uploaded file — it may have any allowed extension
+    from app.config import settings
+    file_path = next(
+        (
+            f"uploads/{video_id}{ext}"
+            for ext in settings.allowed_extensions_list
+            if os.path.exists(f"uploads/{video_id}{ext}")
+        ),
+        None,
+    )
+    if not file_path:
         raise HTTPException(status_code=404, detail="Video file not found")
     
     # Reset and schedule analysis
@@ -94,22 +122,23 @@ async def trigger_analysis(video_id: str, background_tasks: BackgroundTasks):
 
 async def analyze_video_task(video_id: str, file_path: str):
     """
-    Background task to analyze video for deepfakes using HuggingFace API.
+    Background task — runs the Hybrid Spatial-Temporal detector on a video.
+    The detector is CPU-bound and synchronous; run_in_executor keeps the
+    event loop free so polling and other requests are still served.
     """
     try:
-        # Update status
         analysis_cache[video_id].status = "processing"
-        logger.info(f"Starting HuggingFace analysis for video {video_id}")
-        
-        # Perform analysis (sync function, but run in background)
-        result = deepfake_detector.analyze_video(file_path, video_id)
-        
-        # Update cache with results
+        logger.info(f"Starting analysis for video {video_id}")
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            _executor, _ensure_detector_and_analyze, file_path, video_id
+        )
+
         analysis_cache[video_id] = result
         logger.info(f"Analysis completed for video {video_id}: {result.result}")
-        
+
     except Exception as e:
         logger.error(f"Analysis failed for video {video_id}: {e}")
-        # Mark as failed
         analysis_cache[video_id].status = "failed"
         analysis_cache[video_id].explanation = f"Analysis failed: {str(e)}"

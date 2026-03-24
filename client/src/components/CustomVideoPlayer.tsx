@@ -74,15 +74,7 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
             const video = videoRef.current;
             const canvas = canvasRef.current;
 
-            if (!video || !canvas || !showArtifacts) {
-                if (canvas) {
-                    const ctx = canvas.getContext("2d");
-                    if (ctx) {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-                }
-                return;
-            }
+            if (!video || !canvas) return;
 
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -92,70 +84,46 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            if (!showArtifacts) return;
+
             const currentFrame = suspiciousFrames.find(
                 (frame) => Math.abs(frame.timestamp - currentTime) < 0.5,
             );
 
             if (!currentFrame) return;
 
-            if (
-                currentFrame.artifact_regions &&
-                currentFrame.artifact_regions.length > 0
-            ) {
-                currentFrame.artifact_regions.forEach((region) => {
-                    const x = region.x * canvas.width;
-                    const y = region.y * canvas.height;
-                    const w = region.width * canvas.width;
-                    const h = region.height * canvas.height;
+            // Only draw face and lighting regions — skip edge/blur grid noise
+            const regions = (currentFrame.artifact_regions ?? []).filter(
+                (r) =>
+                    r.type === "face_blur" ||
+                    r.type === "lighting_inconsistency",
+            );
 
-                    let color = "rgba(255, 0, 0, 0.5)";
-                    switch (region.type) {
-                        case "blur_anomaly":
-                            color = "rgba(255, 165, 0, 0.6)";
-                            break;
-                        case "edge_inconsistency":
-                            color = "rgba(255, 255, 0, 0.5)";
-                            break;
-                        case "lighting_inconsistency":
-                            color = "rgba(255, 0, 255, 0.5)";
-                            break;
-                        case "face_blur":
-                            color = "rgba(255, 0, 255, 0.7)";
-                            break;
-                    }
+            regions.forEach((region) => {
+                const x = region.x * canvas.width;
+                const y = region.y * canvas.height;
+                const w = region.width * canvas.width;
+                const h = region.height * canvas.height;
+                ctx.strokeStyle =
+                    region.type === "face_blur"
+                        ? "rgba(255, 80, 80, 0.9)"
+                        : "rgba(255, 200, 0, 0.8)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+            });
 
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x, y, w, h);
-
-                    const labelText = `${region.type.replace(/_/g, " ")} (${Math.round(region.confidence * 100)}%)`;
-                    const textMetrics = ctx.measureText(labelText);
-                    const labelWidth = Math.max(textMetrics.width + 10, w);
-
-                    ctx.fillStyle = color;
-                    ctx.fillRect(x, Math.max(0, y - 25), labelWidth, 25);
-
-                    ctx.fillStyle = "white";
-                    ctx.font = "bold 12px sans-serif";
-                    ctx.fillText(labelText, x + 5, Math.max(16, y - 8));
-                });
-            }
-
+            // Small badge in top-right when frame is suspicious
             if (currentFrame.is_fake) {
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
-                ctx.lineWidth = 5;
-                ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-                ctx.fillRect(0, 0, 300, 40);
-
+                const label = `⚠ ${Math.round(currentFrame.confidence * 100)}%`;
+                ctx.font = "bold 13px sans-serif";
+                const bw = ctx.measureText(label).width + 16;
+                const bh = 26;
+                const bx = canvas.width - bw - 8;
+                const by = 8;
+                ctx.fillStyle = "rgba(220, 38, 38, 0.82)";
+                ctx.fillRect(bx, by, bw, bh);
                 ctx.fillStyle = "white";
-                ctx.font = "bold 16px sans-serif";
-                ctx.fillText(
-                    `⚠️ Suspicious Frame (${Math.round(currentFrame.confidence * 100)}%)`,
-                    10,
-                    25,
-                );
+                ctx.fillText(label, bx + 8, by + 17);
             }
         }, [suspiciousFrames, showArtifacts, currentTime]);
 
@@ -215,7 +183,7 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
                 </div>
 
                 {/* Custom Controls */}
-                <div className="flex flex-col gap-3 bg-gray-900 p-4 rounded border border-gray-700">
+                <div className="flex flex-col gap-3 bg-gray-900 p-4 rounded-lg border border-gray-700">
                     {/* Progress Bar */}
                     <div className="relative group">
                         <div
@@ -277,7 +245,7 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
 
                         {/* Artifact Toggle */}
                         <button
-                            className="bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600 transition-colors rounded"
+                            className="bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600 transition-colors rounded-lg"
                             onClick={() => setShowArtifacts(!showArtifacts)}
                         >
                             {showArtifacts ? "Hide Overlays" : "Show Overlays"}
@@ -286,7 +254,7 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
                         {/* Change Video */}
                         {onChangeVideo && (
                             <button
-                                className="bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600 transition-colors rounded"
+                                className="bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600 transition-colors rounded-lg"
                                 onClick={onChangeVideo}
                             >
                                 Change Video
@@ -311,35 +279,6 @@ const CustomVideoPlayer = forwardRef<VideoPlayerHandle, CustomVideoPlayerProps>(
                         </div>
                     )}
                 </div>
-
-                {/* Legend */}
-                {showArtifacts &&
-                    suspiciousFrames &&
-                    suspiciousFrames.length > 0 && (
-                        <div className="bg-gray-900 border border-gray-700 p-3 rounded">
-                            <h4 className="text-sm font-semibold mb-2">
-                                Artifact Types:
-                            </h4>
-                            <div className="grid grid-cols-4 gap-2 text-xs">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-orange-500" />
-                                    <span>Blur</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-yellow-500" />
-                                    <span>Edges</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-fuchsia-500" />
-                                    <span>Lighting</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-fuchsia-600" />
-                                    <span>Face</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
             </div>
         );
     },

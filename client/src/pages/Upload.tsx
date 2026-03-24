@@ -14,39 +14,18 @@ export default function Upload() {
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
         null,
     );
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError] = useState<string | null>(null);
 
-    const handleVideoUpload = async (file: File) => {
+    const handleVideoUpload = (file: File) => {
         setVideoFile(file);
-        const url = URL.createObjectURL(file);
-        setVideoUrl(url);
-        setUploadError(null);
+        setVideoUrl(URL.createObjectURL(file));
         setVideoId(null);
         setAnalysisResult(null);
-
-        // Upload to backend
-        setIsUploading(true);
-        try {
-            const response = await apiService.uploadVideo(file);
-            setVideoId(response.video_id);
-            // Don't auto-start analysis - wait for button click
-        } catch (error) {
-            setUploadError(
-                error instanceof Error ? error.message : "Upload failed",
-            );
-            console.error("Upload error:", error);
-        } finally {
-            setIsUploading(false);
-        }
     };
 
     const pollAnalysisResult = async (id: string) => {
         try {
             const result = await apiService.getAnalysisResult(id);
             setAnalysisResult(result);
-
-            // Continue polling if still processing
             if (result.status === "pending" || result.status === "processing") {
                 setTimeout(() => pollAnalysisResult(id), 2000);
             }
@@ -56,17 +35,33 @@ export default function Upload() {
     };
 
     const handleRunAnalysis = async () => {
-        if (videoId) {
+        if (!videoFile) return;
+        setAnalysisResult({ video_id: "", status: "processing" });
+        try {
+            await apiService.checkHealth();
+        } catch {
             setAnalysisResult({
-                video_id: videoId,
-                status: "pending",
+                video_id: "",
+                status: "failed",
+                explanation:
+                    "Cannot reach backend at http://localhost:8000. Start the server with: cd server && docker compose up",
             });
-            try {
-                await apiService.triggerAnalysis(videoId);
-                pollAnalysisResult(videoId);
-            } catch (error) {
-                console.error("Error triggering analysis:", error);
-            }
+            return;
+        }
+        try {
+            const response = await apiService.uploadVideo(videoFile);
+            setVideoId(response.video_id);
+            await apiService.triggerAnalysis(response.video_id);
+            pollAnalysisResult(response.video_id);
+        } catch (error) {
+            setAnalysisResult({
+                video_id: "",
+                status: "failed",
+                explanation:
+                    error instanceof Error
+                        ? error.message
+                        : "Analysis failed. Make sure the backend is running on port 8000.",
+            });
         }
     };
 
@@ -75,7 +70,6 @@ export default function Upload() {
         setVideoUrl(null);
         setVideoId(null);
         setAnalysisResult(null);
-        setUploadError(null);
     };
 
     const handleSeekToTimestamp = (timestamp: number) => {
@@ -85,33 +79,36 @@ export default function Upload() {
     };
 
     return (
-        <main className="flex w-full flex-1 px-6 overflow-hidden">
-            {!videoUrl ? (
-                <Player
-                    videoUrl={videoUrl}
-                    onVideoUpload={handleVideoUpload}
-                    isUploading={isUploading}
-                    uploadError={uploadError}
-                />
-            ) : (
-                <div className="w-3/4 p-4 flex flex-col gap-4">
-                    <h2 className="text-2xl font-semibold tracking-wide">
-                        Uploaded Video
-                    </h2>
-                    <CustomVideoPlayer
-                        ref={videoPlayerRef}
+        <main className="flex w-full flex-1 gap-6 overflow-hidden bg-black font-mono px-4">
+            <div className="flex-1 flex min-w-0">
+                {!videoUrl ? (
+                    <Player
                         videoUrl={videoUrl}
-                        suspiciousFrames={analysisResult?.suspicious_frames}
-                        onChangeVideo={handleChangeVideo}
+                        onVideoUpload={handleVideoUpload}
                     />
-                </div>
-            )}
-            <Analysis
-                hasVideo={!!videoFile}
-                onRunAnalysis={handleRunAnalysis}
-                analysisResult={analysisResult}
-                onSeekToTimestamp={handleSeekToTimestamp}
-            />
+                ) : (
+                    <div className="w-3/4 p-4 flex flex-col gap-4">
+                        <h2 className="text-2xl font-semibold tracking-wide">
+                            Uploaded Video
+                        </h2>
+                        <CustomVideoPlayer
+                            ref={videoPlayerRef}
+                            videoUrl={videoUrl}
+                            suspiciousFrames={
+                                analysisResult?.suspicious_frames ?? undefined
+                            }
+                            onChangeVideo={handleChangeVideo}
+                        />
+                    </div>
+                )}
+                <Analysis
+                    hasVideo={!!videoUrl}
+                    onRunAnalysis={handleRunAnalysis}
+                    analysisResult={analysisResult}
+                    onSeekToTimestamp={handleSeekToTimestamp}
+                    videoUrl={videoUrl || undefined}
+                />
+            </div>
         </main>
     );
 }
